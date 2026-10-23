@@ -2,20 +2,25 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../core/utils/date_formatter.dart';
 import '../core/utils/storage_service.dart';
+import '../core/utils/streak_service.dart';
 import '../models/priority_enum.dart';
 import '../models/sub_task_model.dart';
 import '../models/task_model.dart';
+import '../models/task_template.dart';
 
 enum TaskStatusFilter { all, active, completed }
 
 enum TaskSortOption { dueDate, priority, title, createdAt }
 
-/// Central state management for task CRUD operations, persistence, search, filtering, and sorting.
+/// Central state management for task CRUD, streak tracking, celebration triggers, search, filtering, and templates.
 class TaskProvider extends ChangeNotifier {
   final StorageService _storageService = StorageService();
+  final StreakService _streakService = StreakService();
 
   List<TaskModel> _tasks = [];
   bool _isLoading = true;
+  int _streakCount = 0;
+  bool _shouldTriggerCelebration = false;
 
   // Search & Filter State
   String _searchQuery = '';
@@ -31,6 +36,8 @@ class TaskProvider extends ChangeNotifier {
   // Getters
   bool get isLoading => _isLoading;
   List<TaskModel> get allTasks => List.unmodifiable(_tasks);
+  int get streakCount => _streakCount;
+  bool get shouldTriggerCelebration => _shouldTriggerCelebration;
   String get searchQuery => _searchQuery;
   TaskStatusFilter get statusFilter => _statusFilter;
   String get selectedCategoryId => _selectedCategoryId;
@@ -42,9 +49,13 @@ class TaskProvider extends ChangeNotifier {
     loadTasksFromStorage();
   }
 
+  void resetCelebrationTrigger() {
+    _shouldTriggerCelebration = false;
+  }
+
   // --- PERSISTENCE ---
 
-  /// Loads stored tasks from SharedPreferences
+  /// Loads stored tasks and streak count from local storage
   Future<void> loadTasksFromStorage() async {
     _isLoading = true;
     notifyListeners();
@@ -53,10 +64,10 @@ class TaskProvider extends ChangeNotifier {
       if (jsonList.isNotEmpty) {
         _tasks = jsonList.map((jsonStr) => TaskModel.fromJson(jsonStr)).toList();
       } else {
-        // Provide demo sample tasks for initial app launch
         _tasks = _getInitialSampleTasks();
         await _persistTasks();
       }
+      _streakCount = await _streakService.getStreakCount();
     } catch (e) {
       debugPrint('Error loading tasks: $e');
       _tasks = [];
@@ -75,7 +86,6 @@ class TaskProvider extends ChangeNotifier {
 
   List<TaskModel> get filteredTasks {
     return _tasks.where((task) {
-      // 1. Text Search Filter
       if (_searchQuery.isNotEmpty) {
         final query = _searchQuery.toLowerCase();
         final matchesTitle = task.title.toLowerCase().contains(query);
@@ -83,14 +93,11 @@ class TaskProvider extends ChangeNotifier {
         if (!matchesTitle && !matchesDesc) return false;
       }
 
-      // 2. Status Filter
       if (_statusFilter == TaskStatusFilter.active && task.isCompleted) return false;
       if (_statusFilter == TaskStatusFilter.completed && !task.isCompleted) return false;
 
-      // 3. Category Filter
       if (_selectedCategoryId != 'all' && task.categoryId != _selectedCategoryId) return false;
 
-      // 4. Priority Filter
       if (_selectedPriority != null && task.priority != _selectedPriority) return false;
 
       return true;
@@ -124,13 +131,41 @@ class TaskProvider extends ChangeNotifier {
     return completedTasksCount / totalTasksCount;
   }
 
-  // --- CRUD OPERATIONS ---
+  // --- CRUD & ADVANCED ACTIONS ---
 
   /// Adds a new task
   Future<void> addTask(TaskModel task) async {
     _tasks.insert(0, task);
     notifyListeners();
     await _persistTasks();
+  }
+
+  /// Applimates a preset TaskTemplate
+  Future<void> applyTemplate(TaskTemplate template) async {
+    final newTasks = template.toTask();
+    _tasks.insert(0, newTasks);
+    notifyListeners();
+    await _persistTasks();
+  }
+
+  /// Duplicates an existing task
+  Future<void> duplicateTask(String taskId) async {
+    final index = _tasks.indexWhere((t) => t.id == taskId);
+    if (index != -1) {
+      final original = _tasks[index];
+      final now = DateTime.now();
+      final duplicated = original.copyWith(
+        id: now.millisecondsSinceEpoch.toString(),
+        title: '${original.title} (Copy)',
+        createdAt: now,
+        subTasks: original.subTasks.map((st) {
+          return st.copyWith(id: '${now.millisecondsSinceEpoch}_${st.id}');
+        }).toList(),
+      );
+      _tasks.insert(index + 1, duplicated);
+      notifyListeners();
+      await _persistTasks();
+    }
   }
 
   /// Updates an existing task
@@ -170,14 +205,13 @@ class TaskProvider extends ChangeNotifier {
     }
   }
 
-  /// Toggles completion status of a task
+  /// Toggles completion status of a task and triggers streak / celebration if completed
   Future<void> toggleTaskCompletion(String taskId) async {
     final index = _tasks.indexWhere((t) => t.id == taskId);
     if (index != -1) {
       final currentTask = _tasks[index];
       final newStatus = !currentTask.isCompleted;
 
-      // If completing main task, optionally complete all sub-tasks as well
       final updatedSubTasks = currentTask.subTasks.map((st) {
         return st.copyWith(isCompleted: newStatus);
       }).toList();
@@ -186,12 +220,17 @@ class TaskProvider extends ChangeNotifier {
         isCompleted: newStatus,
         subTasks: updatedSubTasks,
       );
+
+      // Check for celebration trigger: when newly completed and all active tasks are finished!
+      if (newStatus && _tasks.isNotEmpty && activeTasksCount == 0) {
+        _shouldTriggerCelebration = true;
+        _streakCount = await _streakService.checkAndUpdateStreak(true);
+      }
+
       notifyListeners();
       await _persistTasks();
     }
   }
-
-  // --- SUB-TASKS CONTROLLER ---
 
   /// Toggles sub-task status
   Future<void> toggleSubTask(String taskId, String subTaskId) async {
@@ -211,6 +250,12 @@ class TaskProvider extends ChangeNotifier {
         subTasks: updatedSubTasks,
         isCompleted: allSubTasksCompleted ? true : task.isCompleted,
       );
+
+      if (allSubTasksCompleted && _tasks.isNotEmpty && activeTasksCount == 0) {
+        _shouldTriggerCelebration = true;
+        _streakCount = await _streakService.checkAndUpdateStreak(true);
+      }
+
       notifyListeners();
       await _persistTasks();
     }
@@ -254,14 +299,12 @@ class TaskProvider extends ChangeNotifier {
 
   // --- DATA MANAGEMENT ---
 
-  /// Clears all completed tasks
   Future<void> clearCompletedTasks() async {
     _tasks.removeWhere((t) => t.isCompleted);
     notifyListeners();
     await _persistTasks();
   }
 
-  /// Clears all tasks completely
   Future<void> clearAllData() async {
     _tasks.clear();
     _lastDeletedTask = null;
@@ -269,13 +312,11 @@ class TaskProvider extends ChangeNotifier {
     await _storageService.clearTasks();
   }
 
-  /// Exports tasks as formatted JSON string
   String exportTasksToJson() {
     final list = _tasks.map((t) => t.toMap()).toList();
     return const JsonEncoder.withIndent('  ').convert(list);
   }
 
-  /// Imports tasks from JSON string
   Future<bool> importTasksFromJson(String jsonStr) async {
     try {
       final dynamic parsed = json.decode(jsonStr);
@@ -293,7 +334,6 @@ class TaskProvider extends ChangeNotifier {
     }
   }
 
-  // Initial demo items for clean first launch
   List<TaskModel> _getInitialSampleTasks() {
     final now = DateTime.now();
     return [

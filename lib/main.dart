@@ -10,7 +10,7 @@ void main() async {
   runApp(const TaskFlowApp());
 }
 
-/// Root widget initializing state providers and Material 3 theme configuration.
+/// Root widget initializing state providers and Material 3 theme configuration with dynamic accent color.
 class TaskFlowApp extends StatelessWidget {
   const TaskFlowApp({super.key});
 
@@ -26,8 +26,8 @@ class TaskFlowApp extends StatelessWidget {
           return MaterialApp(
             title: 'TaskFlow Pro - To-Do List App',
             debugShowCheckedModeBanner: false,
-            theme: AppTheme.lightTheme,
-            darkTheme: AppTheme.darkTheme,
+            theme: AppTheme.buildLightTheme(themeProvider.primaryColor),
+            darkTheme: AppTheme.buildDarkTheme(themeProvider.primaryColor),
             themeMode: themeProvider.themeMode,
             home: const DashboardScreen(),
           );

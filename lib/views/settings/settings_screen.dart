@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/theme_provider.dart';
 import '../../providers/task_provider.dart';
 
-/// Settings & Data Management Screen.
+/// Settings & Data Management Screen with Accent Color Customization.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
@@ -15,19 +15,19 @@ class SettingsScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings & Data'),
+        title: const Text('Settings & Customization'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
           // Theme Settings Section
-          _buildSectionTitle(context, 'Appearance'),
+          _buildSectionTitle(context, 'Appearance & Theme Accent'),
           Card(
             child: Column(
               children: [
                 ListTile(
                   leading: const Icon(Icons.brightness_medium_rounded),
-                  title: const Text('App Theme'),
+                  title: const Text('App Theme Mode'),
                   subtitle: Text(_getThemeModeName(themeProvider.themeMode)),
                   trailing: DropdownButton<ThemeMode>(
                     value: themeProvider.themeMode,
@@ -42,7 +42,75 @@ class SettingsScreen extends StatelessWidget {
                     },
                   ),
                 ),
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Primary Accent Color',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: ThemeProvider.availableAccentColors.map((color) {
+                          final isSelected = themeProvider.primaryColor.toARGB32() == color.toARGB32();
+                          return GestureDetector(
+                            onTap: () => themeProvider.setPrimaryAccentColor(color),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: color,
+                                shape: BoxShape.circle,
+                                border: isSelected
+                                    ? Border.all(color: Theme.of(context).cardColor, width: 3)
+                                    : null,
+                                boxShadow: isSelected
+                                    ? [
+                                        BoxShadow(
+                                          color: color.withValues(alpha: 0.5),
+                                          blurRadius: 8,
+                                          spreadRadius: 2,
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: isSelected ? const Icon(Icons.check_rounded, color: Colors.white, size: 20) : null,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                ),
               ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Habit Streak Section
+          _buildSectionTitle(context, 'Habit Streak Statistics'),
+          Card(
+            child: ListTile(
+              leading: const Text('🔥', style: TextStyle(fontSize: 28)),
+              title: const Text('Daily Productivity Streak', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text('${taskProvider.streakCount} Consecutive Days Completed'),
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade100,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  'Active',
+                  style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.bold),
+                ),
+              ),
             ),
           ),
 
@@ -109,23 +177,23 @@ class SettingsScreen extends StatelessWidget {
 
           // App Info
           _buildSectionTitle(context, 'About Application'),
-          const Card(
+          Card(
             child: Padding(
-              padding: EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: CircleAvatar(
-                      backgroundColor: Color(0xFF6366F1),
-                      child: Icon(Icons.check_rounded, color: Colors.white),
+                      backgroundColor: themeProvider.primaryColor,
+                      child: const Icon(Icons.check_rounded, color: Colors.white),
                     ),
-                    title: Text('TaskFlow Pro', style: TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text('Version 1.0.0 (Play Store Ready)'),
+                    title: const Text('TaskFlow Pro', style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: const Text('Version 1.1.0 (Play Store Celebration Edition)'),
                   ),
-                  SizedBox(height: 8),
-                  Text(
-                    'TaskFlow Pro is a clean, feature-rich Flutter task management application with local offline persistence, priorities, categories, and sub-task checklists.',
+                  const SizedBox(height: 8),
+                  const Text(
+                    'TaskFlow Pro includes task templates, confetti celebration overlays, Eisenhower priority matrix, Pomodoro focus timer, habit streaks, and customizable theme accents.',
                     style: TextStyle(color: Colors.grey, fontSize: 13, height: 1.4),
                   ),
                 ],

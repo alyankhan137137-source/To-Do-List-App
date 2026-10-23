@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 
-/// Defines light and dark Material 3 themes for the app.
+/// Defines light and dark Material 3 themes for the app with customizable accent color.
 class AppTheme {
-  static ThemeData get lightTheme {
+  static ThemeData buildLightTheme([Color? primaryColor]) {
+    final primary = primaryColor ?? AppColors.primary;
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: AppColors.primary,
+        seedColor: primary,
         brightness: Brightness.light,
         surface: AppColors.lightSurface,
       ),
@@ -46,11 +47,11 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+          borderSide: BorderSide(color: primary, width: 2),
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: AppColors.primary,
+        backgroundColor: primary,
         foregroundColor: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -64,12 +65,13 @@ class AppTheme {
     );
   }
 
-  static ThemeData get darkTheme {
+  static ThemeData buildDarkTheme([Color? primaryColor]) {
+    final primary = primaryColor ?? AppColors.primary;
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: AppColors.primary,
+        seedColor: primary,
         brightness: Brightness.dark,
         surface: AppColors.darkSurface,
       ),
@@ -107,11 +109,11 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+          borderSide: BorderSide(color: primary, width: 2),
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: AppColors.primary,
+        backgroundColor: primary,
         foregroundColor: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -124,4 +126,7 @@ class AppTheme {
       ),
     );
   }
+
+  static ThemeData get lightTheme => buildLightTheme();
+  static ThemeData get darkTheme => buildDarkTheme();
 }

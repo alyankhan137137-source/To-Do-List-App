@@ -218,6 +218,11 @@ class TaskCard extends StatelessWidget {
                   onSelected: (value) {
                     if (value == 'edit') {
                       onEdit();
+                    } else if (value == 'duplicate') {
+                      provider.duplicateTask(task.id);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Task duplicated!')),
+                      );
                     } else if (value == 'delete') {
                       provider.deleteTask(task.id);
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -239,6 +244,16 @@ class TaskCard extends StatelessWidget {
                           Icon(Icons.edit_rounded, size: 18),
                           SizedBox(width: 8),
                           Text('Edit Task'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'duplicate',
+                      child: Row(
+                        children: [
+                          Icon(Icons.control_point_duplicate_rounded, size: 18, color: Colors.indigo),
+                          SizedBox(width: 8),
+                          Text('Duplicate'),
                         ],
                       ),
                     ),
